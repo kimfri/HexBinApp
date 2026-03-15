@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HexBinApp</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            background: #1e1e2e;
+            color: #cdd6f4;
+            font-family: 'Courier New', monospace;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 2rem;
+        }
+
+        .terminal {
+            background: #181825;
+            border: 1px solid #313244;
+            border-radius: 8px;
+            width: 100%;
+            max-width: 800px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+            overflow: hidden;
+        }
+
+        .terminal-bar {
+            background: #313244;
+            padding: 0.6rem 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .dot { width: 12px; height: 12px; border-radius: 50%; }
+        .dot.red    { background: #f38ba8; }
+        .dot.yellow { background: #f9e2af; }
+        .dot.green  { background: #a6e3a1; }
+
+        .terminal-title {
+            margin-left: auto;
+            margin-right: auto;
+            font-size: 0.8rem;
+            color: #6c7086;
+        }
+
+        .output {
+            padding: 1.2rem 1.5rem;
+            min-height: 300px;
+            max-height: 500px;
+            overflow-y: auto;
+            font-size: 0.9rem;
+            line-height: 1.7;
+        }
+
+        .output-line { white-space: pre; }
+        .output-line.prompt   { color: #89b4fa; }
+        .output-line.section  { color: #cba6f7; font-weight: bold; }
+        .output-line.original { color: #a6e3a1; }
+        .output-line.inverted { color: #f38ba8; }
+        .output-line.reversed { color: #f9e2af; }
+        .output-line.error    { color: #f38ba8; }
+        .output-line.info     { color: #6c7086; }
+
+        .input-row {
+            display: flex;
+            align-items: center;
+            padding: 0.8rem 1.5rem;
+            border-top: 1px solid #313244;
+            gap: 0.5rem;
+        }
+
+        .input-prompt { color: #89b4fa; font-size: 0.9rem; }
+
+        input[type="text"] {
+            flex: 1;
+            background: transparent;
+            border: none;
+            outline: none;
+            color: #cdd6f4;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+            caret-color: #cba6f7;
+        }
+
+        input[type="text"]::placeholder { color: #45475a; }
+
+        .hint {
+            padding: 0.5rem 1.5rem 0.8rem;
+            font-size: 0.75rem;
+            color: #45475a;
+        }
+    </style>
+</head>
+<body>
+<div class="terminal">
+    <div class="terminal-bar">
+        <div class="dot red"></div>
+        <div class="dot yellow"></div>
+        <div class="dot green"></div>
+        <span class="terminal-title">HexBinApp</span>
+    </div>
+
+    <div class="output" id="output"></div>
+
+    <div class="input-row">
+        <span class="input-prompt">&gt;</span>
+        <input type="text" id="input" placeholder="1F 4A B3  |  0x1F 0x4A  |  1F4AB3  |  q = avsluta" autofocus>
+    </div>
+    <div class="hint">Tryck Enter för att köra</div>
+</div>
+
+<script>
+    const output = document.getElementById('output');
+    const input  = document.getElementById('input');
+
+    function print(text, cls = '') {
+        const line = document.createElement('div');
+        line.className = 'output-line' + (cls ? ' ' + cls : '');
+        line.textContent = text;
+        output.appendChild(line);
+        output.scrollTop = output.scrollHeight;
+    }
+
+    function toHex(bytes) {
+        return bytes.map(b => b.toString(16).toUpperCase().padStart(2, '0')).join(' ');
+    }
+
+    function toBinary(bytes) {
+        return bytes.map(b => (b & 0xFF).toString(2).padStart(8, '0')).join(' ');
+    }
+
+    function invert(bytes) {
+        return bytes.map(b => (~b) & 0xFF);
+    }
+
+    function reverse(bytes) {
+        return [...bytes].reverse();
+    }
+
+    function parsePrefixedHex(input) {
+        const tokens = input.trim().split(/\s+/);
+        return tokens.map(token => {
+            if (!/^0[xX][0-9A-Fa-f]{1,2}$/.test(token)) {
+                throw new Error(`'${token}' är inte ett giltigt 0x-värde`);
+            }
+            return parseInt(token.substring(2), 16);
+        });
+    }
+
+    function parseSpaceSeparatedHex(input) {
+        const tokens = input.trim().split(/\s+/);
+        return tokens.map(token => {
+            if (!/^[0-9A-Fa-f]{1,2}$/.test(token)) {
+                throw new Error(`'${token}' är inte ett giltigt hex-värde`);
+            }
+            return parseInt(token, 16);
+        });
+    }
+
+    function parseConcatenatedHex(input) {
+        if (!/^[0-9A-Fa-f]+$/.test(input)) {
+            throw new Error(`'${input}' innehåller ogiltiga tecken`);
+        }
+        if (input.length % 2 !== 0) {
+            throw new Error('Sammanslagen hex måste ha jämnt antal tecken');
+        }
+        const bytes = [];
+        for (let i = 0; i < input.length; i += 2) {
+            bytes.push(parseInt(input.substring(i, i + 2), 16));
+        }
+        return bytes;
+    }
+
+    function parseHex(input) {
+        const normalized = input.trim();
+        if (normalized.includes('0x') || normalized.includes('0X')) {
+            return parsePrefixedHex(normalized);
+        }
+        if (normalized.includes(' ')) {
+            return parseSpaceSeparatedHex(normalized);
+        }
+        return parseConcatenatedHex(normalized);
+    }
+
+    function printOutput(bytes) {
+        print('=== Hex ===', 'section');
+        print('Original:  ' + toHex(bytes),         'original');
+        print('Inverted:  ' + toHex(invert(bytes)),  'inverted');
+        print('Reversed:  ' + toHex(reverse(bytes)), 'reversed');
+        print('');
+        print('=== Binary ===', 'section');
+        print('Original:  ' + toBinary(bytes),         'original');
+        print('Inverted:  ' + toBinary(invert(bytes)),  'inverted');
+        print('Reversed:  ' + toBinary(reverse(bytes)), 'reversed');
+        print('');
+    }
+
+    function printWelcome() {
+        print('=== Byte Array Printer ===', 'section');
+        print('Ange bytes i något av följande format:', 'info');
+        print('  aa bb cc       (hex med mellanslag)', 'info');
+        print('  0xaa 0xbb 0xcc (hex med 0x-prefix)',  'info');
+        print('  aabbcc         (sammanslagen hex)',    'info');
+        print("Skriv 'q' för att avsluta.", 'info');
+        print('');
+    }
+
+    input.addEventListener('keydown', e => {
+        if (e.key !== 'Enter') return;
+
+        const value = input.value.trim();
+        input.value = '';
+
+        print('> ' + value, 'prompt');
+
+        if (!value) return;
+
+        if (value.toLowerCase() === 'q') {
+            print('Avslutar...', 'info');
+            input.disabled = true;
+            return;
+        }
+
+        try {
+            const bytes = parseHex(value);
+            printOutput(bytes);
+        } catch (err) {
+            print('Ogiltigt värde: ' + err.message, 'error');
+            print("Accepterade format: 'aa bb cc', '0xaa 0xbb 0xcc', 'aabbcc'", 'info');
+            print('');
+        }
+    });
+
+    printWelcome();
+</script>
+</body>
+</html>
