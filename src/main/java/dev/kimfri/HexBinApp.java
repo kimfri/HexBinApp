@@ -1,11 +1,10 @@
-// src/main/java/dev/kimfri/HexBinApp.java
 package dev.kimfri;
 
 import java.util.Scanner;
 
 public class HexBinApp {
 
-  public static void main(String[] args) {
+  static void main() {
     new HexBinApp().run();
   }
 
@@ -18,13 +17,9 @@ public class HexBinApp {
       System.out.print("> ");
       String input = scanner.nextLine().trim();
 
-      if (input.equalsIgnoreCase("q")) {
+      if (input.equalsIgnoreCase("q") || input.isEmpty()) {
         System.out.println("Avslutar...");
         break;
-      }
-
-      if (input.isEmpty()) {
-        continue;
       }
 
       try {
@@ -39,21 +34,19 @@ public class HexBinApp {
   }
 
   String buildWelcomeMessage() {
-    return new StringBuilder()
-        .append("=== Byte Array Printer ===\n")
-        .append("Ange bytes i något av följande format:\n")
-        .append("  aa bb cc       (hex med mellanslag)\n")
-        .append("  0xaa 0xbb 0xcc (hex med 0x-prefix)\n")
-        .append("  aabbcc         (sammanslagen hex)\n")
-        .append("Skriv 'q' för att avsluta.")
-        .toString();
+    return """
+        === Byte Array Printer ===
+        Ange bytes i något av följande format:
+          aa bb cc       (hex med mellanslag)
+          0xaa 0xbb 0xcc (hex med 0x-prefix)
+          aabbcc         (sammanslagen hex)
+        Skriv 'q' för att avsluta.
+        """;
   }
 
   String buildErrorMessage(String message) {
-    return new StringBuilder()
-        .append("Ogiltigt värde: ").append(message).append("\n")
-        .append("Accepterade format: 'aa bb cc', '0xaa 0xbb 0xcc', 'aabbcc'")
-        .toString();
+    return "Ogiltigt värde: " + message + "\n" +
+        "Accepterade format: 'aa bb cc', '0xaa 0xbb 0xcc', 'aabbcc'";
   }
 
   byte[] parseHex(String input) {
@@ -108,16 +101,14 @@ public class HexBinApp {
   }
 
   String buildPrintOutput(byte[] bytes) {
-    return new StringBuilder()
-        .append("=== Hex ===\n")
-        .append("Original:  ").append(toHex(bytes)).append("\n")
-        .append("Inverted:  ").append(toHex(invert(bytes))).append("\n")
-        .append("Reversed:  ").append(toHex(reverse(bytes))).append("\n")
-        .append("\n=== Binary ===\n")
-        .append("Original:  ").append(toBinary(bytes)).append("\n")
-        .append("Inverted:  ").append(toBinary(invert(bytes))).append("\n")
-        .append("Reversed:  ").append(toBinary(reverse(bytes)))
-        .toString();
+    return "=== Hex ===\n" +
+        "Original:  " + toHex(bytes) + "\n" +
+        "Inverted:  " + toHex(invert(bytes)) + "\n" +
+        "Reversed:  " + toHex(reverse(bytes)) + "\n" +
+        "\n=== Binary ===\n" +
+        "Original:  " + toBinary(bytes) + "\n" +
+        "Inverted:  " + toBinary(invert(bytes)) + "\n" +
+        "Reversed:  " + toBinary(reverse(bytes));
   }
 
   String toHex(byte[] bytes) {
